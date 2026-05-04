@@ -68,39 +68,38 @@
 
 | Campo | Descrição |
 |---|---|
-| **Ator(es)** | Atendente, Farmacêutico, Cliente, Sistema (IA) |
-| **Descrição** | Registra a venda de produtos através da interface de chat, verificando estoque, validando receitas (quando necessário), calculando valores, processando pagamento e persistindo dados críticos de auditoria. |
-| **Pré-condições** | Usuário autenticado (UC10); Produtos com estoque disponível; Catálogo carregado. |
-| **Pós-condições** | Venda registrada em banco de dados (RN05); Estoque atualizado (RN07); Dados de auditoria persistidos (RN05, RN06); Notificação de status enviada (RN13). |
-| **RFs relacionados** | RF03, RF05 |
-| **RNs relacionadas** | RN01, RN07, RN08, RN09, RN10 |
+| **Ator(es)** | Cliente, Atendente, Gerente/Dono |
+| **Descrição** | Registra a compra de produtos por dois fluxos: Autônomo (Catálogo/Carrinho) para itens isentos, ou Assistido (Chat/Árvore de Decisão) para fluxos guiados e suporte. |
+| **Pré-condições** | Usuário autenticado; Produtos com estoque disponível. |
+| **Pós-condições** | Venda registrada; Estoque atualizado; Comprovante gerado; Dados de auditoria persistidos. |
+| **RFs relacionados** | RF02, RF03, RF05, RF07, RF08, RF15 |
+| **RNs relacionadas** | RN01, RN02, RN04, RN05, RN07, RN08, RN10 |
 
-### Fluxo Principal
+### Fluxo Principal (Caminho 1: Autônomo - MIPs e Conveniência)
 
-1. Cliente inicia uma conversa no chat nativo do aplicativo.
-2. Sistema apresenta opções de atendimento via menu de botões (RN01).
-3. Cliente seleciona "Comprar" ou navegação em catálogo.
-4. Sistema executa UC02 para identificação do cliente.
-5. Sistema exibe produtos e cliente seleciona items via interface de chat (RF05).
-6. Sistema verifica estoque em tempo real (inclui UC03; RN07).
-7. Sistema valida necessidade de receita para medicamentos controlados (estende UC05).
-8. Cliente seleciona forma de pagamento: PIX ou pagamento presencial (RF07, RF08).
-9. Se PIX: Sistema gera chave dinâmica com expiração de 10 minutos (RN08); Cliente realiza transferência.
-10. Se Pagamento Presencial: Sistema confirma e registra para baixa no ato da entrega.
-11. Sistema calcula total e finaliza a compra.
-12. Sistema persiste dados críticos no banco de dados: ID do produto, CPF do cliente, data/hora, imagem de receita (se houver), CRM do validador, CRM e UF do prescritor, log completo do chat (RN05).
-13. Sistema envia notificação de confirmação de pagamento (RN13).
-14. Sistema emite comprovante (inclui UC06).
+1. O Cliente navega pelo catálogo na Home ou por categorias.
+2. O Cliente seleciona um produto (MIP, Perfumaria, Higiene ou Beleza).
+3. **Opção A (Carrinho):** O Cliente adiciona itens ao carrinho, acessa a tela de checkout e segue para o pagamento.
+4. **Opção B (Comprar Agora):** O Cliente seleciona um único item e é direcionado imediatamente à tela de pagamento.
+5. O Sistema verifica o estoque e calcula o total com base no preço atual.
+6. O Cliente escolhe o método de pagamento (Pix ou Entrega) e finaliza a compra.
+7. O Sistema abate o estoque e confirma o pedido.
 
-### Fluxos Alternativos / Exceções
+### Fluxo Alternativo (Caminho 2: Assistido - Chat/Árvore de Decisão)
+
+1. O Cliente inicia o atendimento via chat.
+2. O Cliente interage através de cliques nas opções da Árvore de Decisão.
+3. O Cliente seleciona produtos e segue o fluxo de compra orientado pela interface de conversa.
+4. Se o item selecionado for um Medicamento Controlado, o Sistema solicita obrigatoriamente a foto da receita para validação humana (estende **UC05**).
+5. Caso o fluxo automático não resolva, o atendimento é transferido para um humano (estende **UC04**).
+6. O pagamento é processado e a venda é registrada no painel administrativo.
+
+### Fluxos de Exceção
 
 | ID | Nome | Descrição |
 |---|---|---|
-| **FA01** | Estoque Insuficiente | Sistema bloqueia o item e informa o saldo disponível (RN07); cliente pode ajustar quantidade ou remover item. |
-| **FA02** | PIX Expirado | Se não confirmado em 10 minutos, sistema cancela pedido e libera estoque (RN08). |
-| **FA03** | Validação de Receita Reprovada | Farmacêutico reprova receita via painel; sistema notifica cliente e bloqueia item (RN04); cliente pode tentar reenviar receita. |
-| **FA04** | IA Não Resolve Intenção | Após interações inconclusivas, sistema oferece transbordo para atendente humano (estende UC04; RN01, RN02). |
-| **FA05** | Pagamento Presencial Não Confirmado | Se entregador não confirmar pagamento em 24 horas, pedido retorna ao status "Aguardando Pagamento". |
+| **FE01** | Estoque Insuficiente | O sistema impede a conclusão e informa a falta de saldo. |
+| **FE02** | Expiração de Pagamento | Em pagamentos Pix, o pedido é cancelado automaticamente após 10 minutos de inatividade. |
 
 ### Relacionamentos
 
@@ -110,12 +109,12 @@
 | **Include** | UC03 — Consultar e Verificar Estoque |
 | **Include** | UC06 — Persistir Dados de Auditoria |
 | **Include** | UC08 — Processar Pagamento e Confirmar Recebimento |
-| **Extend** | UC05 — Validar Receita Médica (se houver medicamento controlado) |
-| **Extend** | UC04 — Realizar Transbordo de Atendimento (se IA falhar em resolver) |
+| **Extend** | UC05 — Validar Receita Médica (Obrigatório para itens controlados) |
+| **Extend** | UC04 — Realizar Transbordo de Atendimento (Se solicitado via menu ou falha de fluxo) |
 
 ### Diagrama de Atividades
 
-<img width="350" height="834" alt="image" src="https://github.com/user-attachments/assets/622da48d-a451-4522-a852-6a47fd799568" />
+<img width="648" height="843" alt="image" src="https://github.com/user-attachments/assets/6e4272f3-911f-4da5-9c74-77ed6a5abdae" />
 
 ---
 
